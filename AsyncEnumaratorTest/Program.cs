@@ -29,7 +29,7 @@ namespace AsyncEnumaratorTest
                 {
                     while (searchHasValue)
                     {
-                        Console.WriteLine($"({searchDocuments.Current}) to add");
+                        Console.WriteLine($"({searchDocuments.Current}) to delete");
                         searchHasValue = await searchDocuments.MoveNextAsync();
                     }
 
@@ -38,7 +38,15 @@ namespace AsyncEnumaratorTest
 
                 if (searchDocuments.Current == dhsDocuments.Current)
                 {
-                    Console.WriteLine($"({searchDocuments.Current}) to update");
+                    if (await HasSameEtag(searchDocuments.Current))
+                    {
+                        Console.WriteLine($"({searchDocuments.Current}) skip to update");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"({searchDocuments.Current}) to update");
+                    }
+
                     searchHasValue = await searchDocuments.MoveNextAsync();
                     dhsHasValue = await dhsDocuments.MoveNextAsync();
                 }
@@ -62,6 +70,11 @@ namespace AsyncEnumaratorTest
                 await Task.Delay(10);
                 yield return start + i;
             }
+        }
+
+        static async Task<bool> HasSameEtag(int n)
+        {
+            return await Task.FromResult(n % 4 == 0);
         }
     }
 }
