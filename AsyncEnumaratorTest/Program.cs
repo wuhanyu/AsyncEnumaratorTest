@@ -31,8 +31,8 @@ namespace AsyncEnumaratorTest
                 MaxDegreeOfParallelism = 100
             });
 
-            IAsyncEnumerator<int> searchDocuments = RangeAsync(2, 1000000, 2).GetAsyncEnumerator();
-            IAsyncEnumerator<int> dhsDocuments = RangeAsync(2, 1000000, 3).GetAsyncEnumerator();
+            IAsyncEnumerator<int> searchDocuments = RangeAsync(1, 100, 2).GetAsyncEnumerator();
+            IAsyncEnumerator<int> dhsDocuments = RangeAsync(1, 100, 3).GetAsyncEnumerator();
             var searchHasValue = await searchDocuments.MoveNextAsync();
             var dhsHasValue = await dhsDocuments.MoveNextAsync();
             while (searchHasValue || dhsHasValue)
@@ -63,7 +63,7 @@ namespace AsyncEnumaratorTest
                 {
                     if (await HasSameEtag(searchDocuments.Current))
                     {
-                        // Console.WriteLine($"({searchDocuments.Current}) skip to update");
+                        Console.WriteLine($"({searchDocuments.Current}) skip to update");
                     }
                     else
                     {
@@ -85,6 +85,7 @@ namespace AsyncEnumaratorTest
                 }
             }
 
+            dataflow.Complete();
             await dataflow.Completion;
         }
 
@@ -96,7 +97,6 @@ namespace AsyncEnumaratorTest
                 {
                     await Task.Delay(1000);
                 }
-                await Task.Delay(10);
                 
                 yield return start + i;
             }
