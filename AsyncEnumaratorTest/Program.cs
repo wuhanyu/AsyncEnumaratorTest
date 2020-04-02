@@ -32,34 +32,12 @@ namespace AsyncEnumaratorTest
             });
 
             IAsyncEnumerator<int> searchDocuments = RangeAsync(1, 100, 2).GetAsyncEnumerator();
-            IAsyncEnumerator<int> dhsDocuments = RangeAsync(1, 100, 3).GetAsyncEnumerator();
+            IAsyncEnumerator<int> dhsDocuments = RangeAsync(1, 1000, 3).GetAsyncEnumerator();
             var searchHasValue = await searchDocuments.MoveNextAsync();
             var dhsHasValue = await dhsDocuments.MoveNextAsync();
             while (searchHasValue || dhsHasValue)
             {
-                if (!searchHasValue)
-                {
-                    while (dhsHasValue)
-                    {
-                        await dataflow.SendAsync((dhsDocuments.Current, "add"));
-                        dhsHasValue = await dhsDocuments.MoveNextAsync();
-                    }
-
-                    break;
-                }
-
-                if (!dhsHasValue)
-                {
-                    while (searchHasValue)
-                    {
-                        await dataflow.SendAsync((searchDocuments.Current, "delete"));
-                        searchHasValue = await searchDocuments.MoveNextAsync();
-                    }
-
-                    break;
-                }
-
-                if (searchDocuments.Current == dhsDocuments.Current)
+                if (searchHasValue && dhsHasValue && searchDocuments.Current == dhsDocuments.Current)
                 {
                     if (await HasSameEtag(searchDocuments.Current))
                     {
@@ -73,7 +51,7 @@ namespace AsyncEnumaratorTest
                     searchHasValue = await searchDocuments.MoveNextAsync();
                     dhsHasValue = await dhsDocuments.MoveNextAsync();
                 }
-                else if (searchDocuments.Current > dhsDocuments.Current)
+                else if (!searchHasValue || dhsHasValue && searchDocuments.Current > dhsDocuments.Current)
                 {
                     await dataflow.SendAsync((dhsDocuments.Current, "add"));
                     dhsHasValue = await dhsDocuments.MoveNextAsync();
