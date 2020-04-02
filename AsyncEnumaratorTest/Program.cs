@@ -1,15 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace AsyncEnumaratorTest
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static async Task Main()
         {
-            IAsyncEnumerator<int> searchDocuments = RangeAsync(2, 30, 2).GetAsyncEnumerator();
-            IAsyncEnumerator<int> dhsDocuments = RangeAsync(2, 30, 3).GetAsyncEnumerator();
+            var dataflow = new ActionBlock<(int, string)>(async ((int uri, string action) input) =>
+            {
+                Console.WriteLine($"Processing '{input.uri}' to {input.action}");
+                switch (input.action)
+                {
+                    case "add":
+                        await Task.Delay(3000);
+                        break;
+                    case "delete":
+                        await Task.Delay(1000);
+                        break;
+                    case "update":
+                        await Task.Delay(3000);
+                        break;
+                }
+                
+                Console.WriteLine($"Finish '{input.uri}' ({input.action})");
+            }, new ExecutionDataflowBlockOptions()
+            {
+                MaxDegreeOfParallelism = 100
+            });
+
+            IAsyncEnumerator<int> searchDocuments = RangeAsync(2, 1000000, 2).GetAsyncEnumerator();
+            IAsyncEnumerator<int> dhsDocuments = RangeAsync(2, 1000000, 3).GetAsyncEnumerator();
             var searchHasValue = await searchDocuments.MoveNextAsync();
             var dhsHasValue = await dhsDocuments.MoveNextAsync();
             while (searchHasValue || dhsHasValue)
@@ -18,7 +41,7 @@ namespace AsyncEnumaratorTest
                 {
                     while (dhsHasValue)
                     {
-                        Console.WriteLine($"({dhsDocuments.Current}) to add");
+                        await dataflow.SendAsync((dhsDocuments.Current, "add"));
                         dhsHasValue = await dhsDocuments.MoveNextAsync();
                     }
 
@@ -29,7 +52,7 @@ namespace AsyncEnumaratorTest
                 {
                     while (searchHasValue)
                     {
-                        Console.WriteLine($"({searchDocuments.Current}) to delete");
+                        await dataflow.SendAsync((searchDocuments.Current, "delete"));
                         searchHasValue = await searchDocuments.MoveNextAsync();
                     }
 
@@ -40,11 +63,11 @@ namespace AsyncEnumaratorTest
                 {
                     if (await HasSameEtag(searchDocuments.Current))
                     {
-                        Console.WriteLine($"({searchDocuments.Current}) skip to update");
+                        // Console.WriteLine($"({searchDocuments.Current}) skip to update");
                     }
                     else
                     {
-                        Console.WriteLine($"({searchDocuments.Current}) to update");
+                        await dataflow.SendAsync((searchDocuments.Current, "update"));
                     }
 
                     searchHasValue = await searchDocuments.MoveNextAsync();
@@ -52,22 +75,29 @@ namespace AsyncEnumaratorTest
                 }
                 else if (searchDocuments.Current > dhsDocuments.Current)
                 {
-                    Console.WriteLine($"({dhsDocuments.Current}) to add");
+                    await dataflow.SendAsync((dhsDocuments.Current, "add"));
                     dhsHasValue = await dhsDocuments.MoveNextAsync();
                 }
                 else
                 {
-                    Console.WriteLine($"({searchDocuments.Current}) to delete");
+                    await dataflow.SendAsync((searchDocuments.Current, "delete"));
                     searchHasValue = await searchDocuments.MoveNextAsync();
                 }
             }
+
+            await dataflow.Completion;
         }
 
-        static async IAsyncEnumerable<int> RangeAsync(int start, int count, int margin = 1)
+        static async IAsyncEnumerable<int> RangeAsync(int start, int max, int margin = 1)
         {
-            for (int i = 0; i < count; i += margin)
+            for (int i = 0; i < max; i += margin)
             {
+                if (i / margin % 1000 == 0)
+                {
+                    await Task.Delay(1000);
+                }
                 await Task.Delay(10);
+                
                 yield return start + i;
             }
         }
